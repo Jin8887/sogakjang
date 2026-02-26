@@ -702,6 +702,12 @@ function showQueueCard(fbKey, word, isMine) {
 function removeQueueCard(fbKey) {
   const item = fbCards[fbKey];
   if (!item) return;
+  if (item.cardEl && item.cardEl.parentNode) {
+    item.cardEl.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+    item.cardEl.style.opacity = '0';
+    item.cardEl.style.transform = 'translateX(16px)';
+    setTimeout(() => { if (item.cardEl.parentNode) item.cardEl.remove(); }, 300);
+  }
   delete fbCards[fbKey];
   refreshQueueNumbers();
   if (Object.keys(fbCards).length === 0) {
