@@ -403,26 +403,57 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* SVG 애니메이션 */
 @keyframes cSmoke {
-  0%   { opacity:0.5;  transform:translateY(0) scaleX(1); }
-  50%  { opacity:0.28; transform:translateY(-14px) scaleX(1.2); }
-  100% { opacity:0;    transform:translateY(-28px) scaleX(1.5); }
+  0%   { opacity:0.6;  transform:translateY(0) scaleX(1); }
+  50%  { opacity:0.3;  transform:translateY(-18px) scaleX(1.3); }
+  100% { opacity:0;    transform:translateY(-38px) scaleX(1.7); }
 }
-.cs1 { animation:cSmoke 2.3s ease-out infinite; }
-.cs2 { animation:cSmoke 2.7s ease-out infinite 0.75s; }
-.cs3 { animation:cSmoke 1.9s ease-out infinite 1.5s; }
-@keyframes fd {
-  0%,100%{ transform:scaleY(1)    scaleX(1); }
-  33%    { transform:scaleY(1.12) scaleX(0.9); }
-  66%    { transform:scaleY(0.92) scaleX(1.08); }
+.cs1 { animation:cSmoke 2.0s ease-out infinite; }
+.cs2 { animation:cSmoke 2.4s ease-out infinite 0.6s; }
+.cs3 { animation:cSmoke 1.7s ease-out infinite 1.2s; }
+
+/* 활활 타오르는 불꽃 애니메이션 */
+@keyframes fl1 {
+  0%   { transform:scaleY(1)    scaleX(1)    translateY(0); opacity:0.95; }
+  25%  { transform:scaleY(1.22) scaleX(0.82) translateY(-6px); opacity:1; }
+  50%  { transform:scaleY(0.88) scaleX(1.15) translateY(2px); opacity:0.9; }
+  75%  { transform:scaleY(1.18) scaleX(0.88) translateY(-4px); opacity:1; }
+  100% { transform:scaleY(1)    scaleX(1)    translateY(0); opacity:0.95; }
 }
-.fa1 { animation:fd 1.4s ease-in-out infinite;      transform-origin:center bottom; }
-.fa2 { animation:fd 1.8s ease-in-out infinite 0.4s; transform-origin:center bottom; }
-.fa3 { animation:fd 1.1s ease-in-out infinite 0.9s; transform-origin:center bottom; }
-@keyframes gp { 0%,100%{opacity:.58}50%{opacity:1} }
-.gp  { animation:gp 1.6s ease-in-out infinite; }
+@keyframes fl2 {
+  0%   { transform:scaleY(0.9)  scaleX(1.1)  translateY(2px) rotate(-3deg); opacity:0.85; }
+  33%  { transform:scaleY(1.28) scaleX(0.78) translateY(-8px) rotate(2deg); opacity:1; }
+  66%  { transform:scaleY(0.82) scaleX(1.18) translateY(3px) rotate(-2deg); opacity:0.88; }
+  100% { transform:scaleY(0.9)  scaleX(1.1)  translateY(2px) rotate(-3deg); opacity:0.85; }
+}
+@keyframes fl3 {
+  0%   { transform:scaleY(1.1)  scaleX(0.9)  translateY(-3px) rotate(2deg); opacity:1; }
+  40%  { transform:scaleY(0.78) scaleX(1.22) translateY(4px) rotate(-4deg); opacity:0.82; }
+  70%  { transform:scaleY(1.32) scaleX(0.75) translateY(-9px) rotate(3deg); opacity:1; }
+  100% { transform:scaleY(1.1)  scaleX(0.9)  translateY(-3px) rotate(2deg); opacity:1; }
+}
+@keyframes fl4 {
+  0%,100%{ transform:scaleY(1) scaleX(1) translateY(0); opacity:0.7; }
+  50%    { transform:scaleY(1.35) scaleX(0.72) translateY(-10px); opacity:0.95; }
+}
+@keyframes fl5 {
+  0%,100%{ transform:scaleY(0.85) scaleX(1.1) translateY(2px); opacity:0.6; }
+  45%    { transform:scaleY(1.25) scaleX(0.8) translateY(-7px); opacity:0.9; }
+}
+.fa1 { animation:fl1 0.9s ease-in-out infinite;       transform-origin:center bottom; }
+.fa2 { animation:fl2 1.1s ease-in-out infinite 0.15s; transform-origin:center bottom; }
+.fa3 { animation:fl3 0.8s ease-in-out infinite 0.35s; transform-origin:center bottom; }
+.fa4 { animation:fl4 1.3s ease-in-out infinite 0.05s; transform-origin:center bottom; }
+.fa5 { animation:fl5 1.0s ease-in-out infinite 0.55s; transform-origin:center bottom; }
+.fa6 { animation:fl1 0.75s ease-in-out infinite 0.7s; transform-origin:center bottom; }
+
+@keyframes gp { 0%,100%{opacity:.65}50%{opacity:1} }
+.gp  { animation:gp 0.9s ease-in-out infinite; }
 @keyframes wb { 0%,100%{opacity:.25}50%{opacity:1} }
 .wl1 { animation:wb 1.1s ease-in-out infinite; }
 .wl2 { animation:wb 1.1s ease-in-out infinite 0.55s; }
+
+/* 모바일 스크롤 앵커 */
+#furnace-anchor, #result-anchor { display:block; height:0; }
 
 /* 카드 소각장으로 날아가는 애니메이션 */
 .q-card.flying-out {
@@ -455,7 +486,7 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
         <input type="text" id="wordInput"
                placeholder="버리고 싶은 것 입력"
                maxlength="25" autocomplete="off"/>
-        <button class="btn-add" id="addBtn" onclick="addToQueue()">+ 대기열에 추가</button>
+        <button class="btn-add" id="addBtn" >+ 대기열에 추가</button>
       </div>
     </div>
 
@@ -475,6 +506,7 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
       <span class="now-word" id="nowWord"></span>
     </div>
 
+    <span id="furnace-anchor"></span>
     <div class="furnace-wrap" id="furnaceWrap">
       <svg class="furnace-svg" viewBox="0 0 340 340" xmlns="http://www.w3.org/2000/svg">
         <defs>
@@ -526,10 +558,44 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
         <line x1="170" y1="145" x2="170" y2="303" stroke="#1c1e26" stroke-width="1"/>
         <rect x="128" y="188" width="84" height="80" rx="3" fill="#101218" stroke="#363a4e" stroke-width="2.5"/>
         <rect x="133" y="193" width="74" height="70" rx="2" fill="url(#if2)" class="gp"/>
-        <rect x="133" y="193" width="74" height="70" rx="2" fill="url(#dg)" opacity="0.45" filter="url(#b3)"/>
-        <g class="fa1" style="transform-origin:155px 263px"><ellipse cx="152" cy="248" rx="10" ry="18" fill="#ff5e00" opacity="0.72" filter="url(#b3)"/></g>
-        <g class="fa2" style="transform-origin:170px 263px"><ellipse cx="170" cy="241" rx="8"  ry="15" fill="#ffcc00" opacity="0.78" filter="url(#b3)"/></g>
-        <g class="fa3" style="transform-origin:185px 263px"><ellipse cx="184" cy="249" rx="9"  ry="16" fill="#ff8800" opacity="0.66" filter="url(#b3)"/></g>
+        <rect x="133" y="193" width="74" height="70" rx="2" fill="url(#dg)" opacity="0.55" filter="url(#b3)"/>
+        <!-- 뒷불꽃 (크고 어두움) -->
+        <g class="fa4" style="transform-origin:158px 268px">
+          <ellipse cx="155" cy="238" rx="14" ry="32" fill="#cc3300" opacity="0.55" filter="url(#b5)"/>
+        </g>
+        <g class="fa5" style="transform-origin:178px 268px">
+          <ellipse cx="178" cy="234" rx="12" ry="28" fill="#dd4400" opacity="0.5" filter="url(#b5)"/>
+        </g>
+        <!-- 중간 불꽃 -->
+        <g class="fa1" style="transform-origin:148px 265px">
+          <ellipse cx="146" cy="244" rx="11" ry="22" fill="#ff4400" opacity="0.82" filter="url(#b3)"/>
+        </g>
+        <g class="fa2" style="transform-origin:163px 265px">
+          <ellipse cx="163" cy="236" rx="9"  ry="26" fill="#ff6600" opacity="0.85" filter="url(#b3)"/>
+        </g>
+        <g class="fa3" style="transform-origin:178px 265px">
+          <ellipse cx="178" cy="240" rx="10" ry="24" fill="#ff5500" opacity="0.80" filter="url(#b3)"/>
+        </g>
+        <g class="fa6" style="transform-origin:193px 265px">
+          <ellipse cx="193" cy="244" rx="11" ry="21" fill="#ff4400" opacity="0.78" filter="url(#b3)"/>
+        </g>
+        <!-- 앞불꽃 밝음 (노랑-흰색 코어) -->
+        <g class="fa2" style="transform-origin:155px 265px">
+          <ellipse cx="155" cy="238" rx="6" ry="18" fill="#ffdd00" opacity="0.92" filter="url(#b3)"/>
+        </g>
+        <g class="fa1" style="transform-origin:170px 265px">
+          <ellipse cx="170" cy="230" rx="5" ry="22" fill="#ffee44" opacity="0.95" filter="url(#b3)"/>
+        </g>
+        <g class="fa3" style="transform-origin:184px 265px">
+          <ellipse cx="184" cy="236" rx="5" ry="17" fill="#ffdd00" opacity="0.88" filter="url(#b3)"/>
+        </g>
+        <!-- 화염 혀 (얇고 높이 솟는 것들) -->
+        <g class="fa4" style="transform-origin:162px 268px">
+          <ellipse cx="162" cy="222" rx="3.5" ry="14" fill="#ffff88" opacity="0.75" filter="url(#b3)"/>
+        </g>
+        <g class="fa5" style="transform-origin:175px 268px">
+          <ellipse cx="175" cy="218" rx="3" ry="16" fill="#ffffff" opacity="0.55" filter="url(#b3)"/>
+        </g>
         <rect x="128" y="188" width="84" height="9"  rx="2" fill="#282b38" stroke="#363a4e" stroke-width="1"/>
         <rect x="161" y="226" width="18" height="6"  rx="3" fill="#363a4e" stroke="#464a5e" stroke-width="1"/>
         <circle cx="110" cy="170" r="5.5" fill="#ee2200" class="wl1" filter="url(#b3)"/>
@@ -563,6 +629,7 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
   <!-- ── 오른쪽: 결과 피드 ── -->
   <div class="right-col">
     <p class="section-label">소각 결과</p>
+    <span id="result-anchor"></span>
     <div class="feed-list" id="feedList">
       <div style="font-size:0.7rem;color:rgba(200,195,185,0.18);text-align:center;padding:20px 0;letter-spacing:0.08em">
         아직 소각된 항목이<br>없습니다
@@ -623,6 +690,7 @@ const particleCon   = document.getElementById('particle-container');
 const wordInput     = document.getElementById('wordInput');
 
 wordInput.addEventListener('keydown', e => { if (e.key === 'Enter') addToQueue(); });
+document.getElementById('addBtn').addEventListener('click', addToQueue);
 
 /* ── Firebase 대기열 실시간 구독 ──
    다른 사람이 추가한 카드도 모두 화면에 표시 */
@@ -667,8 +735,7 @@ function addToQueue() {
 
   if (!isProcessing) processNext();
 }
-// onclick 속성에서 호출할 수 있도록 전역 노출
-window.addToQueue = addToQueue;
+
 
 /* ════════════════════════════════
    카드 화면에 표시 (Firebase onChildAdded)
@@ -764,6 +831,9 @@ async function processNext() {
     cardItem.cardEl.classList.add('next');
   }
 
+  // 모바일: 소각장으로 자동 스크롤
+  scrollToSection('furnace-anchor');
+
   await sleep(700);
 
   // 카드 → 소각장으로 날아가기
@@ -774,11 +844,12 @@ async function processNext() {
   // Firebase queue에서 해당 항목 삭제 → 다른 사람 화면에서도 사라짐
   await remove(ref(db, `queue/${fbKey}`));
 
-  // 파티클
+  // 파티클 + 효과음
   const mouthPos = getFurnaceMouthPos();
   explodeSparks(mouthPos.x, mouthPos.y, 20);
   explodeSmoke(mouthPos.x, mouthPos.y);
   flashFurnace();
+  playFireSound();
 
   // Claude API 호출
   let gainText = '';
@@ -789,6 +860,9 @@ async function processNext() {
   const cp = getChimneyPos();
   spawnGreenSparks(cp.x, cp.y);
   await floatChimneyWord(gainText, cp.x, cp.y);
+
+  // 모바일: 결과 영역으로 자동 스크롤
+  scrollToSection('result-anchor');
 
   // Firebase results에 저장 → 모든 사람 피드에 표시
   push(resultsRef, {
@@ -950,8 +1024,79 @@ function spawnGreenSparks(cx, cy) {
 }
 function flashFurnace() {
   const svg = furnaceWrap.querySelector('.furnace-svg');
-  svg.style.filter = 'drop-shadow(0 0 50px rgba(255,200,0,0.85)) brightness(1.6)';
-  setTimeout(() => { svg.style.filter = ''; }, 420);
+  svg.style.filter = 'drop-shadow(0 0 60px rgba(255,220,0,0.95)) brightness(1.8)';
+  setTimeout(() => { svg.style.filter = ''; }, 500);
+}
+
+/* ── 모바일 자동 스크롤 ── */
+function scrollToSection(anchorId) {
+  if (window.innerWidth > 700) return; // 모바일에서만 동작
+  const el = document.getElementById(anchorId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ── 불타는 효과음 (Web Audio API) ── */
+function playFireSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+    // 크래클링 노이즈 (불꽃 타닥거리는 소리)
+    const bufferSize = ctx.sampleRate * 2.5;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 0.6);
+    }
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+
+    // 로우패스 필터 (불꽃 특유의 웜한 톤)
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass';
+    lpf.frequency.setValueAtTime(800, ctx.currentTime);
+    lpf.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 2.0);
+
+    // 하이패스 (바람 소리 제거)
+    const hpf = ctx.createBiquadFilter();
+    hpf.type = 'highpass';
+    hpf.frequency.value = 80;
+
+    // 볼륨 엔벨로프
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.55, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.55, ctx.currentTime + 1.2);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.4);
+
+    // 저주파 럼블 (불꽃 울림)
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(55, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 2.0);
+    const oscGain = ctx.createGain();
+    oscGain.gain.setValueAtTime(0, ctx.currentTime);
+    oscGain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.2);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.2);
+
+    source.connect(lpf);
+    lpf.connect(hpf);
+    hpf.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.connect(oscGain);
+    oscGain.connect(ctx.destination);
+
+    source.start(ctx.currentTime);
+    osc.start(ctx.currentTime);
+    source.stop(ctx.currentTime + 2.5);
+    osc.stop(ctx.currentTime + 2.3);
+
+    setTimeout(() => ctx.close(), 3000);
+  } catch(e) {
+    // 사운드 실패해도 무시
+  }
 }
 
 function esc(s) {
