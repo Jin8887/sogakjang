@@ -441,9 +441,8 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
 <div class="bg-glow"></div>
 
 <header>
-  <p class="eyebrow">마음의 소각장</p>
-  <h1>차례로 태우기</h1>
-  <p class="tagline">쌓인 것들을 하나씩 내려놓습니다</p>
+  <h1>마음의 소각장</h1>
+  <p class="tagline">최적주의자가 되기 위한 내려놓기</p>
 </header>
 
 <div class="arena">
@@ -575,28 +574,77 @@ input:disabled { opacity: 0.4; cursor: not-allowed; }
 
 <div id="particle-container"></div>
 
-<script>
+<script type="module">
+import { initializeApp }     from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, push, remove, onChildAdded, onChildRemoved, serverTimestamp }
+  from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
+
+/* ════════════════════════════════
+   Firebase 초기화
+════════════════════════════════ */
+const firebaseConfig = {
+  apiKey:            "AIzaSyAPCZzuPC0DRBWLL7AwWdeJNFQkLjYkkG4",
+  authDomain:        "sogakjang-448b2.firebaseapp.com",
+  databaseURL:       "https://sogakjang-448b2-default-rtdb.firebaseio.com",
+  projectId:         "sogakjang-448b2",
+  storageBucket:     "sogakjang-448b2.firebasestorage.app",
+  messagingSenderId: "220955210130",
+  appId:             "1:220955210130:web:55004c82445ada8907114b"
+};
+
+const app      = initializeApp(firebaseConfig);
+const db       = getDatabase(app);
+const queueRef  = ref(db, 'queue');
+const resultsRef = ref(db, 'results');
+
 /* ════════════════════════════════
    상태 관리
 ════════════════════════════════ */
-const queue       = [];      // { word, cardEl }
+// 이 세션의 고유 ID (내가 제출한 항목을 내가 처리하기 위해)
+const sessionId = Math.random().toString(36).slice(2);
+
+// Firebase queue에서 받아온 카드들 { fbKey → { word, cardEl, sessionId } }
+const fbCards = {};
+
+// 내가 제출한 항목 중 아직 처리 안 된 것들의 순서 목록
+const myProcessingQueue = []; // { word, fbKey }
 let   isProcessing = false;
 
-const queuePanel   = document.getElementById('queuePanel');
-const queueEmpty   = document.getElementById('queueEmpty');
-const queueCountEl = document.getElementById('queueCount');
-const queueStatus  = document.getElementById('queueStatus');
-const nowBurning   = document.getElementById('nowBurning');
-const nowWordEl    = document.getElementById('nowWord');
-const procIndicator= document.getElementById('procIndicator');
-const furnaceWrap  = document.getElementById('furnaceWrap');
-const feedList     = document.getElementById('feedList');
-const particleCon  = document.getElementById('particle-container');
-const wordInput    = document.getElementById('wordInput');
+const queuePanel    = document.getElementById('queuePanel');
+const queueEmpty    = document.getElementById('queueEmpty');
+const queueCountEl  = document.getElementById('queueCount');
+const queueStatus   = document.getElementById('queueStatus');
+const nowBurning    = document.getElementById('nowBurning');
+const nowWordEl     = document.getElementById('nowWord');
+const procIndicator = document.getElementById('procIndicator');
+const furnaceWrap   = document.getElementById('furnaceWrap');
+const feedList      = document.getElementById('feedList');
+const particleCon   = document.getElementById('particle-container');
+const wordInput     = document.getElementById('wordInput');
 
 wordInput.addEventListener('keydown', e => { if (e.key === 'Enter') addToQueue(); });
 
-/* ── 대기열 추가 ── */
+/* ── Firebase 대기열 실시간 구독 ──
+   다른 사람이 추가한 카드도 모두 화면에 표시 */
+onChildAdded(queueRef, snap => {
+  const { word, sessionId: sid } = snap.val();
+  showQueueCard(snap.key, word, sid === sessionId);
+});
+
+onChildRemoved(queueRef, snap => {
+  removeQueueCard(snap.key);
+});
+
+/* ── Firebase 결과 실시간 구독 ──
+   다른 사람의 결과도 모두 피드에 표시 */
+onChildAdded(resultsRef, snap => {
+  const { word, gain } = snap.val();
+  addFeedItem(word, gain);
+});
+
+/* ════════════════════════════════
+   대기열 추가 (버튼 / 엔터)
+════════════════════════════════ */
 function addToQueue() {
   const word = wordInput.value.trim();
   if (!word) {
@@ -607,100 +655,118 @@ function addToQueue() {
   wordInput.value = '';
   wordInput.focus();
 
-  // 빈 메시지 숨기기
+  // Firebase에 push → onChildAdded가 화면 카드를 그려줌
+  const newRef = push(queueRef, {
+    word,
+    sessionId,
+    timestamp: serverTimestamp()
+  });
+
+  // 내 처리 대기열에 추가
+  myProcessingQueue.push({ word, fbKey: newRef.key });
+
+  if (!isProcessing) processNext();
+}
+// onclick 속성에서 호출할 수 있도록 전역 노출
+window.addToQueue = addToQueue;
+
+/* ════════════════════════════════
+   카드 화면에 표시 (Firebase onChildAdded)
+════════════════════════════════ */
+function showQueueCard(fbKey, word, isMine) {
+  // 이미 있으면 중복 방지
+  if (fbCards[fbKey]) return;
+
   queueEmpty.style.display = 'none';
 
-  // 카드 생성
-  const idx    = queue.length + 1;
   const cardEl = document.createElement('div');
   cardEl.className = 'q-card';
-  if (queue.length === 0 && !isProcessing) cardEl.classList.add('next');
-  cardEl.innerHTML = `<span class="q-num">${idx}</span><span class="q-text">${esc(word)}</span>`;
+  const num = Object.keys(fbCards).length + 1;
+  cardEl.innerHTML = `<span class="q-num">${num}</span><span class="q-text">${esc(word)}</span>`;
+  if (isMine) cardEl.style.borderColor = 'rgba(255,100,0,0.22)'; // 내 것 살짝 강조
 
-  // 입장 애니메이션
-  cardEl.style.opacity = '0';
+  cardEl.style.opacity   = '0';
   cardEl.style.transform = 'translateX(-16px)';
   queuePanel.appendChild(cardEl);
   requestAnimationFrame(() => {
     cardEl.style.transition = 'opacity 0.35s ease, transform 0.35s cubic-bezier(0.34,1.56,0.64,1)';
-    cardEl.style.opacity = '1';
-    cardEl.style.transform = 'translateX(0)';
+    cardEl.style.opacity    = '1';
+    cardEl.style.transform  = 'translateX(0)';
   });
 
-  queue.push({ word, cardEl });
-  updateQueueUI();
-  // 새 카드가 보이도록 대기열 맨 아래로 스크롤
+  fbCards[fbKey] = { word, cardEl };
+  refreshQueueNumbers();
   requestAnimationFrame(() => { queuePanel.scrollTop = queuePanel.scrollHeight; });
-
-  // 처리 중이 아니면 자동 시작
-  if (!isProcessing) processNext();
 }
 
-/* ── 큐 UI 갱신 ── */
-function updateQueueUI() {
-  queueCountEl.textContent = queue.length;
-
-  if (queue.length === 0) {
+function removeQueueCard(fbKey) {
+  const item = fbCards[fbKey];
+  if (!item) return;
+  delete fbCards[fbKey];
+  refreshQueueNumbers();
+  if (Object.keys(fbCards).length === 0) {
     queueEmpty.style.display = 'flex';
   }
+}
 
-  // 첫 번째 카드에 next 강조
-  queue.forEach((item, i) => {
-    if (i === 0 && !isProcessing) {
-      item.cardEl.classList.add('next');
-    } else {
-      item.cardEl.classList.remove('next');
-    }
-    // 번호 갱신
+function refreshQueueNumbers() {
+  const count = Object.keys(fbCards).length;
+  queueCountEl.textContent = count;
+  // 번호 재부여
+  let i = 1;
+  Object.values(fbCards).forEach(item => {
     const numEl = item.cardEl.querySelector('.q-num');
-    if (numEl) numEl.textContent = i + 1;
+    if (numEl) numEl.textContent = i++;
   });
-
-  if (queue.length > 0) {
-    queueStatus.className = 'queue-status';
-    queueStatus.textContent = `${queue.length}건 대기 중`;
+  // 상태 텍스트
+  if (count > 0) {
+    queueStatus.className     = 'queue-status';
+    queueStatus.textContent   = `${count}건 대기 중`;
   } else if (isProcessing) {
-    queueStatus.className = 'queue-status active';
-    queueStatus.textContent = '소각 처리 중...';
+    queueStatus.className     = 'queue-status active';
+    queueStatus.textContent   = '소각 처리 중...';
   } else {
-    queueStatus.className = 'queue-status';
-    queueStatus.textContent = '';
+    queueStatus.className     = 'queue-status';
+    queueStatus.textContent   = '';
   }
 }
 
-/* ── 순차 처리 ── */
+/* ════════════════════════════════
+   순차 처리 (내가 제출한 것만)
+════════════════════════════════ */
 async function processNext() {
-  if (queue.length === 0) {
+  if (myProcessingQueue.length === 0) {
     isProcessing = false;
     nowBurning.classList.remove('visible');
     procIndicator.style.display = 'none';
-    updateQueueUI();
+    refreshQueueNumbers();
     return;
   }
 
   isProcessing = true;
   procIndicator.style.display = 'flex';
 
-  const item   = queue[0];
-  const { word, cardEl } = item;
+  const { word, fbKey } = myProcessingQueue[0];
+  const cardItem = fbCards[fbKey];
 
   // "소각 중" 표시
   nowWordEl.textContent = word;
   nowBurning.classList.add('visible');
 
-  // 카드 next 강조
-  cardEl.classList.add('next');
-  updateQueueUI();
+  // 내 카드 강조
+  if (cardItem) {
+    cardItem.cardEl.classList.add('next');
+  }
 
-  // 잠깐 대기 (사람들이 볼 수 있게)
   await sleep(700);
 
   // 카드 → 소각장으로 날아가기
-  await flyCardToFurnace(cardEl, word);
+  if (cardItem) {
+    await flyCardToFurnace(cardItem.cardEl, word);
+  }
 
-  // 대기열에서 제거
-  queue.shift();
-  updateQueueUI();
+  // Firebase queue에서 해당 항목 삭제 → 다른 사람 화면에서도 사라짐
+  await remove(ref(db, `queue/${fbKey}`));
 
   // 파티클
   const mouthPos = getFurnaceMouthPos();
@@ -708,34 +774,39 @@ async function processNext() {
   explodeSmoke(mouthPos.x, mouthPos.y);
   flashFurnace();
 
-  // API 호출
+  // Claude API 호출
   let gainText = '';
   try { gainText = await fetchGain(word); }
   catch(e) { gainText = '새로운 가능성'; }
 
-  // 굴뚝 긍정 단어
+  // 굴뚝 긍정 단어 애니메이션
   const cp = getChimneyPos();
   spawnGreenSparks(cp.x, cp.y);
   await floatChimneyWord(gainText, cp.x, cp.y);
 
-  // 결과 피드
-  addFeedItem(word, gainText);
+  // Firebase results에 저장 → 모든 사람 피드에 표시
+  push(resultsRef, {
+    word,
+    gain: gainText,
+    timestamp: serverTimestamp()
+  });
 
-  // 다음 항목 처리 (짧은 대기)
+  myProcessingQueue.shift();
   await sleep(500);
   await processNext();
 }
 
-/* ── 카드가 소각장 투입구로 날아가는 애니메이션 ── */
+/* ════════════════════════════════
+   애니메이션 함수들 (변경 없음)
+════════════════════════════════ */
 function flyCardToFurnace(cardEl, word) {
   return new Promise(resolve => {
-    const cardRect  = cardEl.getBoundingClientRect();
-    const mouth     = getFurnaceMouthPos();
-    const sx        = cardRect.left + cardRect.width  / 2;
-    const sy        = cardRect.top  + cardRect.height / 2;
+    const cardRect = cardEl.getBoundingClientRect();
+    const mouth    = getFurnaceMouthPos();
+    const sx = cardRect.left + cardRect.width  / 2;
+    const sy = cardRect.top  + cardRect.height / 2;
 
-    // 카드를 숨기고 날아가는 복사본 생성
-    cardEl.style.opacity = '0.15';
+    cardEl.style.opacity   = '0.15';
     cardEl.style.transform = 'scale(0.85)';
 
     const flyEl = document.createElement('div');
@@ -745,42 +816,29 @@ function flyCardToFurnace(cardEl, word) {
     document.body.appendChild(flyEl);
 
     const dur = 1600, t0 = performance.now();
-
     function frame(now) {
-      const t  = Math.min((now - t0) / dur, 1);
-      const mt = Math.min(t / 0.6, 1);
-      // easeInQuad: 처음엔 천천히, 나중엔 쭉 빨려들어감
+      const t    = Math.min((now - t0) / dur, 1);
+      const mt   = Math.min(t / 0.6, 1);
       const ease = mt < 0.5 ? 2*mt*mt : 1 - Math.pow(-2*mt+2,2)/2;
-
-      const cx  = sx + (mouth.x - sx) * ease;
-      const cy  = sy + (mouth.y - sy) * ease;
-
-      // t>0.5 부터 줄어들고 빨개지며 흐릿해짐
+      const cx   = sx + (mouth.x - sx) * ease;
+      const cy   = sy + (mouth.y - sy) * ease;
       const shrink  = t > 0.48 ? 1 - ((t-0.48)/0.52)*0.96 : 1;
-      const opacity = t > 0.44 ? Math.max(0, 1 - ((t-0.44)/0.56)) : 1;
+      const opacity = t > 0.44 ? Math.max(0, 1-((t-0.44)/0.56)) : 1;
       const g       = Math.max(0, Math.round(200*(1-t*1.4)));
       const blur    = t > 0.6  ? ((t-0.6)/0.4)*14 : 0;
-
       flyEl.style.left      = cx + 'px';
       flyEl.style.top       = cy + 'px';
       flyEl.style.transform = `translate(-50%,-50%) scale(${shrink})`;
       flyEl.style.opacity   = opacity;
       flyEl.style.color     = `rgb(255,${g},0)`;
       flyEl.style.filter    = `blur(${blur.toFixed(1)}px)`;
-
-      if (t < 1) {
-        requestAnimationFrame(frame);
-      } else {
-        flyEl.remove();
-        cardEl.remove();
-        resolve();
-      }
+      if (t < 1) requestAnimationFrame(frame);
+      else { flyEl.remove(); cardEl.remove(); resolve(); }
     }
     requestAnimationFrame(frame);
   });
 }
 
-/* ── 굴뚝 단어 피어오름 ── */
 function floatChimneyWord(text, cx, cy) {
   return new Promise(resolve => {
     const el = document.createElement('div');
@@ -788,7 +846,6 @@ function floatChimneyWord(text, cx, cy) {
     el.textContent = text;
     el.style.cssText = `left:${cx}px;top:${cy}px;transform:translate(-50%,0);opacity:0`;
     document.body.appendChild(el);
-
     const dur=2200, rise=120, t0=performance.now();
     function frame(now) {
       const t  = Math.min((now-t0)/dur, 1);
@@ -807,77 +864,46 @@ function floatChimneyWord(text, cx, cy) {
   });
 }
 
-/* ── 결과 피드 추가 ── */
 function addFeedItem(burned, gain) {
-  // 빈 상태 메시지 제거
   const emptyEl = feedList.querySelector('[style*="아직"]');
   if (emptyEl) emptyEl.remove();
-
   const el = document.createElement('div');
   el.className = 'feed-item';
-  el.innerHTML = `
-    <div class="fi-burned">${esc(burned)}</div>
-    <div class="fi-gain">✨ ${esc(gain)}</div>`;
+  el.innerHTML = `<div class="fi-burned">${esc(burned)}</div><div class="fi-gain">✨ ${esc(gain)}</div>`;
   feedList.insertBefore(el, feedList.firstChild);
   feedList.scrollTop = 0;
-  // 제한 없음 — 무제한 누적
 }
 
-/* ── 위치 계산 ── */
 function getFurnaceMouthPos() {
   const r = furnaceWrap.getBoundingClientRect();
   return { x: r.left + r.width*(170/340), y: r.top + r.height*(228/340) };
 }
 function getChimneyPos() {
   const r = furnaceWrap.getBoundingClientRect();
-  return { x: r.left + r.width*(75/340),  y: r.top + r.height*(50/340) };
+  return { x: r.left + r.width*(75/340), y: r.top + r.height*(50/340) };
 }
 
-/* ── Claude API ── */
 async function fetchGain(word) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  // Vercel 서버 함수를 통해 호출 (CORS 우회)
+  const res = await fetch('/api/gain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 80,
-      system: `당신은 심리적 전환 전문가입니다.
-사용자가 "소각(버리고 싶은 것)"을 입력하면,
-그것을 내려놓았을 때 비로소 얻게 되는 것을 간결한 명사형 문구(5~10자) 하나만 답합니다.
-
-규칙:
-- 단순 반대말·반의어 절대 금지
-- 쉼표로 나열 금지 — 하나의 문구만
-- '버림'으로써 열리는 심리적·관계적·성장 공간을 하나의 핵심 문구로 포착
-- 명사형 또는 명사구로 마무리
-
-예시:
-입력: 내 경험과 비교하는 피드백 → 새로운 관점을 여는 눈
-입력: 완벽해야 한다는 강박 → 시도할 용기
-입력: 인정받고 싶은 욕구 → 내면의 목소리
-입력: 실패에 대한 두려움 → 다시 시작할 힘
-입력: 통제하려는 습관 → 신뢰의 공간
-
-응답은 출력 문구만. 설명 없이.`,
-      messages: [{ role: 'user', content: word }]
-    })
+    body: JSON.stringify({ word })
   });
   const data = await res.json();
-  return data.content?.map(c => c.text||'').join('').trim() || '새로운 가능성';
+  return data.gain || '새로운 가능성';
 }
 
-/* ── 파티클 ── */
 function explodeSparks(cx, cy, cnt) {
   const cols = ['#ff6600','#ff3300','#ffcc00','#ff9900','#ffee44'];
   for (let i=0; i<cnt; i++) {
-    const s   = document.createElement('div');
+    const s = document.createElement('div');
     s.className = 'spark';
-    const sz  = Math.random()*6+2.5;
-    const col = cols[Math.floor(Math.random()*cols.length)];
+    const sz = Math.random()*6+2.5, col = cols[Math.floor(Math.random()*cols.length)];
     s.style.cssText = `width:${sz}px;height:${sz}px;background:${col};left:${cx}px;top:${cy}px;transform:translate(-50%,-50%);border-radius:50%;box-shadow:0 0 ${sz*2}px ${col}`;
     const ang = Math.random()*Math.PI*2, d = Math.random()*110+25;
     s.style.setProperty('--tx', (Math.cos(ang)*d)+'px');
-    s.style.setProperty('--ty', (Math.sin(ang)*d - Math.random()*50)+'px');
+    s.style.setProperty('--ty', (Math.sin(ang)*d-Math.random()*50)+'px');
     const dur = (Math.random()*0.7+0.65).toFixed(2);
     s.style.setProperty('--dur', dur+'s');
     particleCon.appendChild(s);
@@ -886,7 +912,7 @@ function explodeSparks(cx, cy, cnt) {
 }
 function explodeSmoke(cx, cy) {
   for (let i=0; i<7; i++) {
-    const s  = document.createElement('div');
+    const s = document.createElement('div');
     s.className = 'smoke-p';
     const sz = Math.random()*25+16;
     s.style.cssText = `width:${sz}px;height:${sz}px;left:${cx}px;top:${cy}px;transform:translate(-50%,-50%)`;
@@ -909,7 +935,7 @@ function spawnGreenSparks(cx, cy) {
     s.style.setProperty('--sz', sz+'px');
     const ang = Math.random()*Math.PI*2, d = Math.random()*80+28;
     s.style.setProperty('--tx', (Math.cos(ang)*d)+'px');
-    s.style.setProperty('--ty', (Math.sin(ang)*d - 42)+'px');
+    s.style.setProperty('--ty', (Math.sin(ang)*d-42)+'px');
     const dur = (Math.random()*0.8+1.1).toFixed(2);
     s.style.setProperty('--dur', dur+'s');
     particleCon.appendChild(s);
